@@ -1,5 +1,6 @@
 mod compress;
 mod extract;
+mod node;
 use anyhow::{Context, Result};
 
 use clap::{App, Arg};
