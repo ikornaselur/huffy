@@ -1,16 +1,29 @@
+use std::cmp::Ordering;
 type ChildNode = Option<Box<Node>>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Node {
-    value: u8,
-    weight: f32,
-    left: ChildNode,
-    right: ChildNode,
+    pub value: u8,
+    pub weight: usize,
+    pub left: ChildNode,
+    pub right: ChildNode,
 }
 
 impl Node {
     pub fn is_leaf(self: &Node) -> bool {
         self.left.is_none() && self.right.is_none()
+    }
+}
+
+impl PartialOrd for Node {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.weight.partial_cmp(&other.weight)
+    }
+}
+
+impl Ord for Node {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.weight.cmp(&other.weight)
     }
 }
 
@@ -22,13 +35,13 @@ mod tests {
     fn test_node_leaf() {
         let node = Node {
             value: 3,
-            weight: 0.3,
+            weight: 7,
             left: None,
             right: None,
         };
 
         assert_eq!(node.value, 3);
-        assert!((node.weight - 0.3).abs() < f32::EPSILON);
+        assert_eq!(node.weight, 7);
         assert!(node.left.is_none());
         assert!(node.right.is_none());
         assert!(node.is_leaf());
@@ -38,21 +51,21 @@ mod tests {
     fn test_node_with_children() {
         let mut parent = Node {
             value: 10,
-            weight: 0.3,
+            weight: 7,
             left: None,
             right: None,
         };
 
         parent.left = Some(Box::new(Node {
             value: 3,
-            weight: 0.1,
+            weight: 1,
             left: None,
             right: None,
         }));
 
         parent.right = Some(Box::new(Node {
             value: 9,
-            weight: 0.2,
+            weight: 2,
             left: None,
             right: None,
         }));
