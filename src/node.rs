@@ -9,12 +9,6 @@ pub struct Node {
     pub right: ChildNode,
 }
 
-impl Node {
-    pub fn is_leaf(self: &Node) -> bool {
-        self.left.is_none() && self.right.is_none()
-    }
-}
-
 impl PartialOrd for Node {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.weight.partial_cmp(&other.weight)
@@ -44,7 +38,6 @@ mod tests {
         assert_eq!(node.weight, 7);
         assert!(node.left.is_none());
         assert!(node.right.is_none());
-        assert!(node.is_leaf());
     }
 
     #[test]

@@ -1,7 +1,8 @@
 use crate::node::Node;
 use anyhow::Result;
+use bit_vec::BitVec;
 use std::cmp::Reverse;
-use std::collections::BinaryHeap;
+use std::collections::{BinaryHeap, HashMap, VecDeque};
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::{BufReader, ErrorKind};
@@ -9,11 +10,14 @@ use std::io::{BufReader, ErrorKind};
 const BUFFER_SIZE: usize = 512;
 
 pub fn compress(file: File) -> Result<()> {
-    // Count the occurrances of bytes
     let buf = BufReader::new(file);
     let counts = get_counts(buf)?;
     let heap = counts_to_heap(counts);
-    if let Some(_head) = heap_to_tree(heap) {
+    if let Some(head) = heap_to_tree(heap) {
+        let _bitmap = tree_to_bit_hash_map(head);
+        for (key, value) in _bitmap.iter() {
+            println!("{}: {:?}", key, value);
+        }
     } else {
         return Ok(());
     }
@@ -75,6 +79,34 @@ fn heap_to_tree(mut heap: BinaryHeap<Reverse<Node>>) -> Option<Node> {
     } else {
         None
     }
+}
+
+fn tree_to_bit_hash_map(head: Node) -> HashMap<u8, BitVec> {
+    let mut queue = VecDeque::new();
+    let mut map = HashMap::new();
+    let mut bit_vec = BitVec::new();
+
+    queue.push_back((head, bit_vec));
+
+    while !queue.is_empty() {
+        let (node, bits) = queue.pop_front().unwrap();
+        if let Some(value) = node.value {
+            map.insert(value, bits);
+        } else {
+            if let Some(left) = node.left {
+                let mut left_bits = bits.clone();
+                left_bits.push(false);
+                queue.push_back((*left, left_bits));
+            }
+            if let Some(right) = node.right {
+                let mut right_bits = bits.clone();
+                right_bits.push(true);
+                queue.push_back((*right, right_bits));
+            }
+        }
+    }
+
+    map
 }
 
 #[cfg(test)]
@@ -246,5 +278,30 @@ mod tests {
         let head_right_right_right = head_right_right.right.unwrap();
         assert_eq!(head_right_right_right.value, Some(2));
         assert_eq!(head_right_right_right.weight, 6);
+    }
+
+    #[test]
+    fn test_tree_to_bit_hash_map() {
+        let head = Node {
+            value: None,
+            weight: 27,
+            left: Some(Box::new(Node {
+                value: Some(3),
+                weight: 17,
+                left: None,
+                right: None,
+            })),
+            right: Some(Box::new(Node {
+                value: Some(8),
+                weight: 10,
+                left: None,
+                right: None,
+            })),
+        };
+
+        let bitmap = tree_to_bit_hash_map(head);
+
+        assert!(bitmap.get(&3u8).unwrap().eq_vec(&[false]));
+        assert!(bitmap.get(&8u8).unwrap().eq_vec(&[true]));
     }
 }
