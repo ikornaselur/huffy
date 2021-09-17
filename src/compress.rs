@@ -13,10 +13,8 @@ pub fn compress(file: File) -> Result<()> {
     let buf = BufReader::new(file);
     let counts = get_counts(buf)?;
     let heap = counts_to_heap(counts);
-    if let Some(head) = heap_to_tree(heap) {
-        println!("Got head with val {}!", head.value);
+    if let Some(_head) = heap_to_tree(heap) {
     } else {
-        println!("No head!");
         return Ok(());
     }
 
@@ -49,7 +47,7 @@ fn counts_to_heap(counts: [usize; 256]) -> BinaryHeap<Reverse<Node>> {
     for (idx, count) in counts.iter().enumerate() {
         if count > &0 {
             heap.push(Reverse(Node {
-                value: idx as u8,
+                value: Some(idx as u8),
                 weight: *count,
                 left: None,
                 right: None,
@@ -60,8 +58,23 @@ fn counts_to_heap(counts: [usize; 256]) -> BinaryHeap<Reverse<Node>> {
     heap
 }
 
-fn heap_to_tree(heap: BinaryHeap<Reverse<Node>>) -> Option<Node> {
-    None
+fn heap_to_tree(mut heap: BinaryHeap<Reverse<Node>>) -> Option<Node> {
+    while heap.len() > 1 {
+        let Reverse(a) = heap.pop().unwrap();
+        let Reverse(b) = heap.pop().unwrap();
+        let node = Node {
+            value: None,
+            weight: a.weight + b.weight,
+            left: Some(Box::new(a)),
+            right: Some(Box::new(b)),
+        };
+        heap.push(Reverse(node));
+    }
+    if let Some(Reverse(head)) = heap.pop() {
+        Some(head)
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]
@@ -116,7 +129,7 @@ mod tests {
 
         assert_eq!(heap.len(), 1);
         let Reverse(node) = heap.pop().unwrap();
-        assert_eq!(node.value, 0);
+        assert_eq!(node.value, Some(0));
         assert_eq!(node.weight, 10);
     }
 
@@ -132,15 +145,106 @@ mod tests {
         assert_eq!(heap.len(), 3);
 
         let Reverse(node) = heap.pop().unwrap();
-        assert_eq!(node.value, 1);
+        assert_eq!(node.value, Some(1));
         assert_eq!(node.weight, 3);
 
         let Reverse(node) = heap.pop().unwrap();
-        assert_eq!(node.value, 0);
+        assert_eq!(node.value, Some(0));
         assert_eq!(node.weight, 10);
 
         let Reverse(node) = heap.pop().unwrap();
-        assert_eq!(node.value, 2);
+        assert_eq!(node.value, Some(2));
         assert_eq!(node.weight, 25);
+    }
+
+    #[test]
+    fn test_heap_to_tree_with_no_values() {
+        let heap = BinaryHeap::new();
+
+        let head = heap_to_tree(heap);
+
+        assert!(head.is_none());
+    }
+
+    #[test]
+    fn test_heap_to_tree_with_one_node() {
+        let mut heap = BinaryHeap::new();
+        heap.push(Reverse(Node {
+            value: Some(5),
+            weight: 10,
+            left: None,
+            right: None,
+        }));
+
+        let head = heap_to_tree(heap);
+
+        assert_eq!(head.unwrap().value, Some(5));
+    }
+
+    #[test]
+    fn test_heap_to_tree_with_with_multiple_values() {
+        let mut heap = BinaryHeap::new();
+        heap.push(Reverse(Node {
+            value: Some(5),
+            weight: 10,
+            left: None,
+            right: None,
+        }));
+        heap.push(Reverse(Node {
+            value: Some(1),
+            weight: 3,
+            left: None,
+            right: None,
+        }));
+        heap.push(Reverse(Node {
+            value: Some(2),
+            weight: 6,
+            left: None,
+            right: None,
+        }));
+        heap.push(Reverse(Node {
+            value: Some(9),
+            weight: 8,
+            left: None,
+            right: None,
+        }));
+
+        /* Expected tree:
+         *
+         *     *:27
+         *   /      \
+         * 5:10    *:17
+         *       /      \
+         *     9:8      *:9
+         *             /   \
+         *           1:3   2:6
+         */
+        let head = heap_to_tree(heap).unwrap();
+        assert_eq!(head.value, None);
+        assert_eq!(head.weight, 27);
+
+        let head_left = head.left.unwrap();
+        assert_eq!(head_left.value, Some(5));
+        assert_eq!(head_left.weight, 10);
+
+        let head_right = head.right.unwrap();
+        assert_eq!(head_right.value, None);
+        assert_eq!(head_right.weight, 17);
+
+        let head_right_left = head_right.left.unwrap();
+        assert_eq!(head_right_left.value, Some(9));
+        assert_eq!(head_right_left.weight, 8);
+
+        let head_right_right = head_right.right.unwrap();
+        assert_eq!(head_right_right.value, None);
+        assert_eq!(head_right_right.weight, 9);
+
+        let head_right_right_left = head_right_right.left.unwrap();
+        assert_eq!(head_right_right_left.value, Some(1));
+        assert_eq!(head_right_right_left.weight, 3);
+
+        let head_right_right_right = head_right_right.right.unwrap();
+        assert_eq!(head_right_right_right.value, Some(2));
+        assert_eq!(head_right_right_right.weight, 6);
     }
 }

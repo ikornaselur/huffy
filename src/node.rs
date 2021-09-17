@@ -3,7 +3,7 @@ type ChildNode = Option<Box<Node>>;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Node {
-    pub value: u8,
+    pub value: Option<u8>,
     pub weight: usize,
     pub left: ChildNode,
     pub right: ChildNode,
@@ -34,13 +34,13 @@ mod tests {
     #[test]
     fn test_node_leaf() {
         let node = Node {
-            value: 3,
+            value: Some(3),
             weight: 7,
             left: None,
             right: None,
         };
 
-        assert_eq!(node.value, 3);
+        assert_eq!(node.value, Some(3));
         assert_eq!(node.weight, 7);
         assert!(node.left.is_none());
         assert!(node.right.is_none());
@@ -50,28 +50,28 @@ mod tests {
     #[test]
     fn test_node_with_children() {
         let mut parent = Node {
-            value: 10,
+            value: None,
             weight: 7,
             left: None,
             right: None,
         };
 
         parent.left = Some(Box::new(Node {
-            value: 3,
+            value: Some(3),
             weight: 1,
             left: None,
             right: None,
         }));
 
         parent.right = Some(Box::new(Node {
-            value: 9,
+            value: Some(9),
             weight: 2,
             left: None,
             right: None,
         }));
 
-        assert_eq!(parent.value, 10);
-        assert_eq!(parent.left.unwrap().value, 3);
-        assert_eq!(parent.right.unwrap().value, 9);
+        assert_eq!(parent.value, None);
+        assert_eq!(parent.left.unwrap().value, Some(3));
+        assert_eq!(parent.right.unwrap().value, Some(9));
     }
 }
