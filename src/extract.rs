@@ -1,7 +1,7 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::fs::File;
 
-pub fn extract(file: File) -> Result<()> {
+pub fn extract(_file: File) -> Result<()> {
     println!("Extracting");
     Ok(())
 }

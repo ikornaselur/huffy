@@ -16,7 +16,7 @@ pub fn compress(file: File) -> Result<()> {
     if let Some(head) = heap_to_tree(heap) {
         let _bitmap = tree_to_bit_hash_map(head);
         for (key, value) in _bitmap.iter() {
-            println!("{}: {:?}", key, value);
+            println!("'{}': {:?}", *key as char, value);
         }
     } else {
         return Ok(());
@@ -84,7 +84,7 @@ fn heap_to_tree(mut heap: BinaryHeap<Reverse<Node>>) -> Option<Node> {
 fn tree_to_bit_hash_map(head: Node) -> HashMap<u8, BitVec> {
     let mut queue = VecDeque::new();
     let mut map = HashMap::new();
-    let mut bit_vec = BitVec::new();
+    let bit_vec = BitVec::new();
 
     queue.push_back((head, bit_vec));
 
