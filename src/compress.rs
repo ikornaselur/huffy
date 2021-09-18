@@ -84,7 +84,7 @@ fn heap_to_tree(mut heap: BinaryHeap<Reverse<Node>>) -> Option<Node> {
 fn tree_to_bit_hash_map(head: Node) -> HashMap<u8, BitVec> {
     let mut queue = VecDeque::new();
     let mut map = HashMap::new();
-    let mut bit_vec = BitVec::new();
+    let bit_vec = BitVec::new();
 
     queue.push_back((head, bit_vec));
 
