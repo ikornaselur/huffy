@@ -16,7 +16,7 @@ pub fn compress(file: File) -> Result<()> {
     if let Some(head) = heap_to_tree(heap) {
         let _bitmap = tree_to_bit_hash_map(head);
         for (key, value) in _bitmap.iter() {
-            println!("{}: {:?}", key, value);
+            println!("'{}': {:?}", *key as char, value);
         }
     } else {
         return Ok(());
