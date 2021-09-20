@@ -19,8 +19,7 @@ pub fn compress(file_name: &str) -> Result<()> {
     let mut buffer = BufReader::new(in_file);
     let counts = get_counts(buffer.by_ref()).with_context(|| "Error compressing file")?;
     let heap = counts_to_heap(counts);
-    let head = heap_to_tree(heap).with_context(|| "Error compressing file")?;
-    let bitmap = tree_to_bit_hash_map(head);
+    let root = heap_to_tree(heap).with_context(|| "Error compressing file")?;
 
     // Write out a new file with the "bitmap"
     buffer.seek(SeekFrom::Start(0))?;
@@ -28,7 +27,7 @@ pub fn compress(file_name: &str) -> Result<()> {
     let out_path = Path::new(&out_file_name);
     let out_file = File::create(&out_path)
         .with_context(|| format!("Error opening `{}` for writing", file_name))?;
-    write(out_file, bitmap, buffer).with_context(|| "Error compressing file")?;
+    write(out_file, root, buffer).with_context(|| "Error compressing file")?;
 
     Ok(())
 }
@@ -89,7 +88,7 @@ fn heap_to_tree(mut heap: BinaryHeap<Reverse<Node>>) -> Result<Node> {
     }
 }
 
-fn tree_to_bit_hash_map(head: Node) -> HashMap<u8, BitVec> {
+fn tree_to_bit_hash_map(head: Node) -> BitMap {
     let mut queue = VecDeque::new();
     let mut map = HashMap::new();
     let bit_vec = BitVec::new();
@@ -117,10 +116,13 @@ fn tree_to_bit_hash_map(head: Node) -> HashMap<u8, BitVec> {
     map
 }
 
-fn write(file: File, bitmap: BitMap, mut buffer: impl Read) -> Result<()> {
+fn write(file: File, root: Node, mut buffer: impl Read) -> Result<()> {
     let mut bytes = [0; BUFFER_SIZE];
-    let mut bit_vec = BitVec::new();
     let mut stream = BufWriter::new(file);
+    // Start the output with the exported tree
+    let mut bit_vec = root.export();
+
+    let bitmap = tree_to_bit_hash_map(root);
 
     loop {
         match buffer.read(&mut bytes) {
