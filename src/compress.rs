@@ -1,31 +1,39 @@
 use crate::node::Node;
-use anyhow::Result;
+use anyhow::{bail, Context, Result};
 use bit_vec::BitVec;
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap, VecDeque};
 use std::fs::File;
 use std::io::prelude::*;
-use std::io::{BufReader, ErrorKind};
+use std::io::{BufReader, BufWriter, ErrorKind, SeekFrom};
+use std::path::Path;
 
-const BUFFER_SIZE: usize = 512;
+const BUFFER_SIZE: usize = 4096;
+type BitMap = HashMap<u8, BitVec>;
 
-pub fn compress(file: File) -> Result<()> {
-    let buf = BufReader::new(file);
-    let counts = get_counts(buf)?;
+pub fn compress(file_name: &str) -> Result<()> {
+    let in_path = Path::new(file_name);
+    let in_file = File::open(&in_path).with_context(|| format!("Error opening `{}`", file_name))?;
+
+    // Get the "bitmap" from the file, based on byte counts
+    let mut buffer = BufReader::new(in_file);
+    let counts = get_counts(buffer.by_ref()).with_context(|| "Error compressing file")?;
     let heap = counts_to_heap(counts);
-    if let Some(head) = heap_to_tree(heap) {
-        let _bitmap = tree_to_bit_hash_map(head);
-        for (key, value) in _bitmap.iter() {
-            println!("'{}': {:?}", *key as char, value);
-        }
-    } else {
-        return Ok(());
-    }
+    let head = heap_to_tree(heap).with_context(|| "Error compressing file")?;
+    let bitmap = tree_to_bit_hash_map(head);
+
+    // Write out a new file with the "bitmap"
+    buffer.seek(SeekFrom::Start(0))?;
+    let out_file_name = format!("{}.huf", file_name);
+    let out_path = Path::new(&out_file_name);
+    let out_file = File::create(&out_path)
+        .with_context(|| format!("Error opening `{}` for writing", file_name))?;
+    write(out_file, bitmap, buffer).with_context(|| "Error compressing file")?;
 
     Ok(())
 }
 
-fn get_counts<T: Read>(mut buffer: BufReader<T>) -> Result<[usize; 256]> {
+fn get_counts(mut buffer: impl Read) -> Result<[usize; 256]> {
     let mut counts = [0; 256];
     let mut bytes = [0; BUFFER_SIZE];
 
@@ -38,7 +46,7 @@ fn get_counts<T: Read>(mut buffer: BufReader<T>) -> Result<[usize; 256]> {
                 }
             }
             Err(ref e) if e.kind() == ErrorKind::Interrupted => continue,
-            Err(e) => panic!("{:?}", e),
+            Err(e) => bail!("{:?}", e),
         };
     }
 
@@ -62,7 +70,7 @@ fn counts_to_heap(counts: [usize; 256]) -> BinaryHeap<Reverse<Node>> {
     heap
 }
 
-fn heap_to_tree(mut heap: BinaryHeap<Reverse<Node>>) -> Option<Node> {
+fn heap_to_tree(mut heap: BinaryHeap<Reverse<Node>>) -> Result<Node> {
     while heap.len() > 1 {
         let Reverse(a) = heap.pop().unwrap();
         let Reverse(b) = heap.pop().unwrap();
@@ -75,9 +83,9 @@ fn heap_to_tree(mut heap: BinaryHeap<Reverse<Node>>) -> Option<Node> {
         heap.push(Reverse(node));
     }
     if let Some(Reverse(head)) = heap.pop() {
-        Some(head)
+        Ok(head)
     } else {
-        None
+        bail!("Unable to convert heap to tree")
     }
 }
 
@@ -107,6 +115,40 @@ fn tree_to_bit_hash_map(head: Node) -> HashMap<u8, BitVec> {
     }
 
     map
+}
+
+fn write(file: File, bitmap: BitMap, mut buffer: impl Read) -> Result<()> {
+    let mut bytes = [0; BUFFER_SIZE];
+    let mut bit_vec = BitVec::new();
+    let mut stream = BufWriter::new(file);
+
+    loop {
+        match buffer.read(&mut bytes) {
+            Ok(0) => break,
+            Ok(_) => {
+                for byte in bytes {
+                    if byte == 0 {
+                        continue;
+                    }
+                    let bits = &bitmap[&byte];
+                    bit_vec.extend(bits);
+                }
+                let remainder = bit_vec.len() % 8;
+                let new_bit_vec = bit_vec.split_off(bit_vec.len() - remainder);
+                stream.write_all(&bit_vec.to_bytes())?;
+                bit_vec.truncate(0);
+                bit_vec.extend(new_bit_vec);
+            }
+            Err(ref e) if e.kind() == ErrorKind::Interrupted => continue,
+            Err(e) => bail!("{:?}", e),
+        };
+    }
+
+    if !bit_vec.is_empty() {
+        stream.write_all(&bit_vec.to_bytes())?;
+    }
+    stream.flush()?;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -193,9 +235,8 @@ mod tests {
     fn test_heap_to_tree_with_no_values() {
         let heap = BinaryHeap::new();
 
-        let head = heap_to_tree(heap);
-
-        assert!(head.is_none());
+        let head = heap_to_tree(heap).err().unwrap();
+        assert_eq!(head.to_string(), "Unable to convert heap to tree");
     }
 
     #[test]

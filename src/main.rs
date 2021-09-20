@@ -1,13 +1,11 @@
 mod compress;
 mod extract;
 mod node;
-use anyhow::{Context, Result};
+use anyhow::Result;
 
 use clap::{App, Arg};
 use compress::compress;
 use extract::extract;
-use std::fs::File;
-use std::path::Path;
 
 fn main() -> Result<()> {
     let matches = App::new("Huffy")
@@ -39,12 +37,10 @@ fn main() -> Result<()> {
         .get_matches();
 
     let file_name = matches.value_of("INPUT").unwrap();
-    let path = Path::new(file_name);
-    let file = File::open(&path).with_context(|| format!("Error opening `{}`", file_name))?;
 
     if matches.is_present("compress") {
-        compress(file)
+        compress(file_name)
     } else {
-        extract(file)
+        extract(file_name)
     }
 }

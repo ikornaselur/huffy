@@ -1,7 +1,6 @@
 use anyhow::Result;
-use std::fs::File;
 
-pub fn extract(_file: File) -> Result<()> {
+pub fn extract(_file_name: &str) -> Result<()> {
     println!("Extracting");
     Ok(())
 }
